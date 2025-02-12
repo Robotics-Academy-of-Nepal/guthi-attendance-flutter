@@ -37,6 +37,10 @@ class ItCustomBottomNavBar extends StatelessWidget {
               text: 'Home',
             ),
             GButton(
+              icon: Icons.event,
+              text: 'Holiday',
+            ),
+            GButton(
               icon: Icons.person,
               text: 'Profile',
             ),

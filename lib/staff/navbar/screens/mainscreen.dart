@@ -2,7 +2,6 @@ import 'package:attendance2/notification/notification_service.dart';
 import 'package:attendance2/staff/activity/screens/activity_screen.dart';
 import 'package:attendance2/staff/homepage/screen/homescreen.dart';
 import 'package:attendance2/staff/leave/screens/leave_screen.dart';
-// import 'package:attendance2/staff/leave/screens/newleave.dart';
 import 'package:attendance2/staff/navbar/bloc/navigation_cubit.dart';
 import 'package:attendance2/staff/navbar/screens/bottom_navigation.dart';
 import 'package:attendance2/staff/profile/screens/profile_screen.dart';
@@ -38,8 +37,9 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     // List of screens for navigation
     final List<Widget> screens = [
-      HomeScreen(),
-      // LeavesView(),
+      HomeScreen(
+        userId: widget.userId,
+      ),
       Leaves(),
       MyActivityScreen(userId: widget.userId),
       ProfileScreen(userIdd: widget.userId),

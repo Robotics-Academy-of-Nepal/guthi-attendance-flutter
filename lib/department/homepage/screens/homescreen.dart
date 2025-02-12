@@ -10,7 +10,9 @@ import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class DHomeScreen extends StatefulWidget {
+  final int userId;
   const DHomeScreen({
+    required this.userId,
     super.key,
   });
 
@@ -24,9 +26,11 @@ class _DHomeScreenState extends State<DHomeScreen> {
   bool isLoading = true;
   bool isError = false;
   String? selectedStudent;
-  String? checkInTime;
-  String? checkOutTime;
+  List<Map<String, String>> filteredActivities = [];
   String? profileImage;
+  String? yesterdayCheckIn;
+  String? yesterdayCheckOut;
+  String? Image;
 
   @override
   void initState() {
@@ -36,80 +40,92 @@ class _DHomeScreenState extends State<DHomeScreen> {
   }
 
   Future<void> fetchProfileImage() async {
-    // Retrieve the profile image from secure storage
-    String? imageData = await secureStorage.read(key: 'profile_image');
+    String? imageData = await secureStorage.read(key: 'image');
+
     if (imageData != null) {
       setState(() {
-        profileImage = imageData; // Store the image data
+        profileImage = '$baseurl$imageData';
       });
     }
   }
 
   Future<void> fetchAttendanceData() async {
-    selectedStudent = await secureStorage.read(key: 'first_name');
-
     setState(() {
       isLoading = true;
       isError = false;
     });
 
     try {
-      // Retrieve user ID or other necessary data from secure storage
-      String? userId = await secureStorage.read(key: 'id');
-      if (userId == null) {
-        throw Exception("User ID not found");
-      }
-
-      // Define date range (e.g., last 7 days)
       String startDate = DateFormat('yyyy-MM-dd')
           .format(DateTime.now().subtract(const Duration(days: 7)));
-      String endDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      String yesterdayDate = DateFormat('yyyy-MM-dd')
+          .format(DateTime.now().subtract(const Duration(days: 1)));
 
-      // Construct API URL
       String apiUrl =
-          '$baseurl/api/accesslog/?user_id=$userId&start_time=$startDate&end_time=$endDate';
+          '$baseurl/api/accesslog/?user_id=${widget.userId}&start_time=$startDate&end_time=$yesterdayDate';
 
-      // Make API call
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         List<dynamic> data = json.decode(response.body);
+        print(data);
 
-        // Process API response
-        List<Map<String, String>> processedData = [];
+        // Create a map to store check-in and check-out times for each date
+        Map<String, Map<String, String?>> attendanceMap = {};
         for (var log in data) {
-          String date =
-              log['time'].split('T')[0]; // Extract date from timestamp
-          processedData.add({
-            "date": date,
-            "status": "Present", // Assuming all logs indicate presence
-          });
-        }
+          String date = log['time'].split('T')[0];
+          String eventType = log['attendance_events'];
+          String time = log['time'].split('T')[1].split('+')[0];
 
-        // Extract Check In and Check Out times for today
-        String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        List<dynamic> todayLogs = data.where((log) {
-          String logDate = log['time'].split('T')[0];
-          return logDate == today;
-        }).toList();
+          // Initialize the date entry if it doesn't exist
+          if (!attendanceMap.containsKey(date)) {
+            attendanceMap[date] = {"checkIn": null, "checkOut": null};
+          }
 
-        String? checkIn;
-        String? checkOut;
-        for (var log in todayLogs) {
-          if (log['attendance_events'] == "Check In") {
-            checkIn = log['time']
-                .split('T')[1]
-                .substring(0, 5); // Extract time (HH:mm)
-          } else if (log['attendance_events'] == "Check Out") {
-            checkOut = log['time']
-                .split('T')[1]
-                .substring(0, 5); // Extract time (HH:mm)
+          // Update check-in or check-out time based on the event type
+          if (eventType == 'Check In') {
+            attendanceMap[date]!["checkIn"] = time;
+          } else if (eventType == 'Check Out') {
+            attendanceMap[date]!["checkOut"] = time;
+          }
+
+          // Extract check-in and check-out times for yesterday
+          if (date == yesterdayDate) {
+            if (eventType == 'Check In') {
+              yesterdayCheckIn = time;
+              print("Yesterday Check-In: $yesterdayCheckIn");
+            } else if (eventType == 'Check Out') {
+              yesterdayCheckOut = time;
+              print("Yesterday Check-Out: $yesterdayCheckOut");
+            }
           }
         }
 
+        // Generate attendance records for each day from the start date to yesterday
+        DateTime startDate = DateTime.now().subtract(const Duration(days: 7));
+        DateTime endDate = DateTime.now().subtract(const Duration(days: 1));
+
+        List<Map<String, String>> updatedActivities = [];
+        for (DateTime date = startDate;
+            date.isBefore(endDate) || date.isAtSameMomentAs(endDate);
+            date = date.add(const Duration(days: 1))) {
+          String dateStr = DateFormat('yyyy-MM-dd').format(date);
+
+          // Check if both check-in and check-out times exist for the date
+          bool isPresent = attendanceMap.containsKey(dateStr) &&
+              attendanceMap[dateStr]!["checkIn"] != null &&
+              attendanceMap[dateStr]!["checkOut"] != null;
+
+          updatedActivities.add({
+            "date": dateStr,
+            "status": isPresent ? "Present" : "Absent",
+          });
+        }
+
+        // Reverse the order to display the most recent date at the top
+        updatedActivities = updatedActivities.reversed.toList();
+
         setState(() {
-          attendanceData = processedData;
-          checkInTime = checkIn ?? "--:--";
-          checkOutTime = checkOut ?? "--:--";
+          filteredActivities = updatedActivities;
           isLoading = false;
         });
       } else {
@@ -128,6 +144,10 @@ class _DHomeScreenState extends State<DHomeScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    final currentState = context.read<UserDataBloc>().state;
+    if (currentState is UserDataLoadedState) {
+      selectedStudent = currentState.firstName;
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -136,13 +156,29 @@ class _DHomeScreenState extends State<DHomeScreen> {
         elevation: 0,
         leading: Padding(
           padding: EdgeInsets.all(screenWidth * 0.02),
-          child: CircleAvatar(
-            backgroundColor: Colors.blue,
-            backgroundImage: profileImage != null
-                ? MemoryImage(
-                    base64Decode(profileImage!)) // Decode base64 image
-                : const AssetImage('assets/images/demo profile.jpg')
-                    as ImageProvider, // Fallback image
+          child: BlocBuilder<UserDataBloc, UserDataState>(
+            builder: (context, state) {
+              if (state is UserDataLoadedState) {
+                // Check if the image already contains the base URL
+                if (!state.image.startsWith('http')) {
+                  Image = '$baseurl${state.image}';
+                } else {
+                  Image = state.image;
+                }
+
+                return CircleAvatar(
+                  backgroundColor: Colors.white,
+                  backgroundImage: Image != null ? NetworkImage(Image!) : null,
+                  child: Image == null
+                      ? Icon(Icons.person, size: 40, color: Colors.white)
+                      : null,
+                );
+              }
+              return CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, size: 40, color: Colors.white),
+              );
+            },
           ),
         ),
         title: Column(
@@ -229,13 +265,14 @@ class _DHomeScreenState extends State<DHomeScreen> {
                                           fontSize: screenWidth * 0.035,
                                         ),
                                       ),
-                                      Text(
-                                        checkInTime ?? "--:--",
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.03,
-                                          color: Colors.grey,
+                                      if (yesterdayCheckIn != null)
+                                        Text(
+                                          yesterdayCheckIn!,
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.03,
+                                            color: Colors.grey,
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ],
@@ -270,13 +307,14 @@ class _DHomeScreenState extends State<DHomeScreen> {
                                           fontSize: screenWidth * 0.035,
                                         ),
                                       ),
-                                      Text(
-                                        checkOutTime ?? "--:--",
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.03,
-                                          color: Colors.grey,
+                                      if (yesterdayCheckOut != null)
+                                        Text(
+                                          yesterdayCheckOut!,
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.03,
+                                            color: Colors.grey,
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ],
@@ -313,6 +351,85 @@ class _DHomeScreenState extends State<DHomeScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    Expanded(
+                      child: filteredActivities.isEmpty
+                          ? const Center(
+                              child: Text(
+                                  'No activities found for the selected range.'))
+                          : ListView.builder(
+                              itemCount: filteredActivities.length,
+                              itemBuilder: (context, index) {
+                                final activity = filteredActivities[index];
+                                final activityDate = DateFormat.yMMMMd()
+                                    .format(DateTime.parse(activity['date']!));
+
+                                return Container(
+                                  margin: EdgeInsets.symmetric(
+                                    vertical: screenHeight * 0.01,
+                                    horizontal: screenWidth * 0.04,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.shade200,
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: screenWidth * 0.02,
+                                        height: screenHeight * 0.08,
+                                        decoration: BoxDecoration(
+                                          color: activity['status'] == 'Absent'
+                                              ? Colors.red
+                                              : Colors.green,
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(8),
+                                            bottomLeft: Radius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: screenHeight * 0.01,
+                                            horizontal: screenWidth * 0.03,
+                                          ),
+                                          child: ListTile(
+                                            leading: Icon(
+                                              activity['status'] == 'Absent'
+                                                  ? Icons.cancel
+                                                  : Icons.check_circle,
+                                              color:
+                                                  activity['status'] == 'Absent'
+                                                      ? Colors.red
+                                                      : Colors.green,
+                                            ),
+                                            title: Text(
+                                              activity['status'] ?? '',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: activity['status'] ==
+                                                        'Absent'
+                                                    ? Colors.red
+                                                    : Colors.green,
+                                              ),
+                                            ),
+                                            subtitle: Text(activityDate),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),

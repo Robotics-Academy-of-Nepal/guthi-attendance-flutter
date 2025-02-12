@@ -10,7 +10,9 @@ import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class HomeScreen extends StatefulWidget {
+  final int userId;
   const HomeScreen({
+    required this.userId,
     super.key,
   });
 
@@ -24,29 +26,19 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
   bool isError = false;
   String? selectedStudent;
-  String? checkInTime;
-  String? checkOutTime;
-  String? profileImage;
+  List<Map<String, String>> filteredActivities = [];
+  String? Image;
+  String? yesterdayCheckIn;
+  String? yesterdayCheckOut;
 
   @override
   void initState() {
     super.initState();
     fetchAttendanceData();
-    fetchProfileImage();
-  }
-
-  Future<void> fetchProfileImage() async {
-    // Retrieve the profile image from secure storage
-    String? imageData = await secureStorage.read(key: 'profile_image');
-    if (imageData != null) {
-      setState(() {
-        profileImage = imageData; // Store the image data
-      });
-    }
   }
 
   Future<void> fetchAttendanceData() async {
-    selectedStudent = await secureStorage.read(key: 'first_name');
+    if (!mounted) return; // Prevent executing if widget is disposed
 
     setState(() {
       isLoading = true;
@@ -54,72 +46,82 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Retrieve user ID or other necessary data from secure storage
-      String? userId = await secureStorage.read(key: 'id');
-      if (userId == null) {
-        throw Exception("User ID not found");
-      }
-
-      // Define date range (e.g., last 7 days)
       String startDate = DateFormat('yyyy-MM-dd')
           .format(DateTime.now().subtract(const Duration(days: 7)));
-      String endDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      String yesterdayDate = DateFormat('yyyy-MM-dd')
+          .format(DateTime.now().subtract(const Duration(days: 1)));
 
-      // Construct API URL
       String apiUrl =
-          '$baseurl/api/accesslog/?user_id=$userId&start_time=$startDate&end_time=$endDate';
+          '$baseurl/api/accesslog/?user_id=${widget.userId}&start_time=$startDate&end_time=$yesterdayDate';
 
-      // Make API call
       final response = await http.get(Uri.parse(apiUrl));
+
+      if (!mounted) return; // Ensure widget is still in the tree
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         List<dynamic> data = json.decode(response.body);
+        Map<String, Map<String, String?>> attendanceMap = {};
 
-        // Process API response
-        List<Map<String, String>> processedData = [];
         for (var log in data) {
-          String date =
-              log['time'].split('T')[0]; // Extract date from timestamp
-          processedData.add({
-            "date": date,
-            "status": "Present", // Assuming all logs indicate presence
-          });
-        }
+          String date = log['time'].split('T')[0];
+          String eventType = log['attendance_events'];
+          String time = log['time'].split('T')[1].split('+')[0];
 
-        // Extract Check In and Check Out times for today
-        String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        List<dynamic> todayLogs = data.where((log) {
-          String logDate = log['time'].split('T')[0];
-          return logDate == today;
-        }).toList();
+          if (!attendanceMap.containsKey(date)) {
+            attendanceMap[date] = {"checkIn": null, "checkOut": null};
+          }
 
-        String? checkIn;
-        String? checkOut;
-        for (var log in todayLogs) {
-          if (log['attendance_events'] == "Check In") {
-            checkIn = log['time']
-                .split('T')[1]
-                .substring(0, 5); // Extract time (HH:mm)
-          } else if (log['attendance_events'] == "Check Out") {
-            checkOut = log['time']
-                .split('T')[1]
-                .substring(0, 5); // Extract time (HH:mm)
+          if (eventType == 'Check In') {
+            attendanceMap[date]!["checkIn"] = time;
+          } else if (eventType == 'Check Out') {
+            attendanceMap[date]!["checkOut"] = time;
+          }
+
+          if (date == yesterdayDate) {
+            if (eventType == 'Check In') {
+              yesterdayCheckIn = time;
+            } else if (eventType == 'Check Out') {
+              yesterdayCheckOut = time;
+            }
           }
         }
 
-        setState(() {
-          attendanceData = processedData;
-          checkInTime = checkIn ?? "--:--";
-          checkOutTime = checkOut ?? "--:--";
-          isLoading = false;
-        });
+        DateTime start = DateTime.now().subtract(const Duration(days: 7));
+        DateTime end = DateTime.now().subtract(const Duration(days: 1));
+
+        List<Map<String, String>> updatedActivities = [];
+        for (DateTime date = start;
+            date.isBefore(end) || date.isAtSameMomentAs(end);
+            date = date.add(const Duration(days: 1))) {
+          String dateStr = DateFormat('yyyy-MM-dd').format(date);
+          bool isPresent = attendanceMap.containsKey(dateStr) &&
+              attendanceMap[dateStr]!["checkIn"] != null &&
+              attendanceMap[dateStr]!["checkOut"] != null;
+
+          updatedActivities.add({
+            "date": dateStr,
+            "status": isPresent ? "Present" : "Absent",
+          });
+        }
+
+        updatedActivities = updatedActivities.reversed.toList();
+
+        if (mounted) {
+          setState(() {
+            filteredActivities = updatedActivities;
+            isLoading = false;
+          });
+        }
       } else {
         throw Exception("Failed to fetch data: ${response.statusCode}");
       }
     } catch (e) {
-      setState(() {
-        isError = true;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isError = true;
+          isLoading = false;
+        });
+      }
       print("Error fetching data: $e");
     }
   }
@@ -128,7 +130,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-
+    final currentState = context.read<UserDataBloc>().state;
+    if (currentState is UserDataLoadedState) {
+      selectedStudent = currentState.firstName;
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -136,13 +141,29 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         leading: Padding(
           padding: EdgeInsets.all(screenWidth * 0.02),
-          child: CircleAvatar(
-            backgroundColor: Colors.blue,
-            backgroundImage: profileImage != null
-                ? MemoryImage(
-                    base64Decode(profileImage!)) // Decode base64 image
-                : const AssetImage('assets/images/demo profile.jpg')
-                    as ImageProvider, // Fallback image
+          child: BlocBuilder<UserDataBloc, UserDataState>(
+            builder: (context, state) {
+              if (state is UserDataLoadedState) {
+                // Check if the image already contains the base URL
+                if (!state.image.startsWith('http')) {
+                  Image = '$baseurl${state.image}';
+                } else {
+                  Image = state.image;
+                }
+
+                return CircleAvatar(
+                  backgroundColor: Colors.white,
+                  backgroundImage: Image != null ? NetworkImage(Image!) : null,
+                  child: Image == null
+                      ? Icon(Icons.person, size: 40, color: Colors.white)
+                      : null,
+                );
+              }
+              return CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, size: 40, color: Colors.white),
+              );
+            },
           ),
         ),
         title: Column(
@@ -185,9 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      height: 15,
-                    ),
+                    SizedBox(height: 15),
                     Padding(
                       padding: EdgeInsets.only(left: 16),
                       child: Text(
@@ -219,32 +238,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                     size: screenWidth * 0.08,
                                   ),
                                   SizedBox(width: screenHeight * 0.01),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Check In",
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.035,
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Check In",
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.035,
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        checkInTime ?? "--:--",
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.03,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
+                                        if (yesterdayCheckIn != null)
+                                          Text(
+                                            yesterdayCheckIn!,
+                                            style: TextStyle(
+                                              fontSize: screenWidth * 0.03,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          SizedBox(
-                            width: 70,
-                          ),
+                          SizedBox(width: 50),
                           Expanded(
                             child: Container(
                               margin: EdgeInsets.only(left: screenWidth * 0.02),
@@ -260,24 +280,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                     size: screenWidth * 0.08,
                                   ),
                                   SizedBox(width: screenHeight * 0.01),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Check Out",
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.035,
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Check Out",
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.035,
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        checkOutTime ?? "--:--",
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.03,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
+                                        if (yesterdayCheckOut != null)
+                                          Text(
+                                            yesterdayCheckOut!,
+                                            style: TextStyle(
+                                              fontSize: screenWidth * 0.03,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -313,6 +336,85 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    Expanded(
+                      child: filteredActivities.isEmpty
+                          ? const Center(
+                              child: Text(
+                                  'No activities found for the selected range.'))
+                          : ListView.builder(
+                              itemCount: filteredActivities.length,
+                              itemBuilder: (context, index) {
+                                final activity = filteredActivities[index];
+                                final activityDate = DateFormat.yMMMMd()
+                                    .format(DateTime.parse(activity['date']!));
+
+                                return Container(
+                                  margin: EdgeInsets.symmetric(
+                                    vertical: screenHeight * 0.01,
+                                    horizontal: screenWidth * 0.04,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.shade200,
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: screenWidth * 0.02,
+                                        height: screenHeight * 0.08,
+                                        decoration: BoxDecoration(
+                                          color: activity['status'] == 'Absent'
+                                              ? Colors.red
+                                              : Colors.green,
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(8),
+                                            bottomLeft: Radius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: screenHeight * 0.01,
+                                            horizontal: screenWidth * 0.03,
+                                          ),
+                                          child: ListTile(
+                                            leading: Icon(
+                                              activity['status'] == 'Absent'
+                                                  ? Icons.cancel
+                                                  : Icons.check_circle,
+                                              color:
+                                                  activity['status'] == 'Absent'
+                                                      ? Colors.red
+                                                      : Colors.green,
+                                            ),
+                                            title: Text(
+                                              activity['status'] ?? '',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: activity['status'] ==
+                                                        'Absent'
+                                                    ? Colors.red
+                                                    : Colors.green,
+                                              ),
+                                            ),
+                                            subtitle: Text(activityDate),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),

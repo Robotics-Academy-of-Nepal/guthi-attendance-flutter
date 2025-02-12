@@ -1,8 +1,8 @@
 // ignore_for_file: avoid_print
 import 'dart:convert';
-import 'dart:io';
 import 'package:attendance2/auth/screens/login_screen.dart';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
+import 'package:attendance2/auth/userdata_bloc/event.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/config/global.dart';
 import 'package:attendance2/main.dart';
@@ -179,56 +179,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadImage() async {
-    // Request permission based on the platform
-    final status = Platform.isAndroid
-        ? await Permission.storage.request()
-        : await Permission.photos.request();
-
-    // Handle denied or permanently denied permissions
+    final status = await Permission.mediaLibrary.request();
     if (status.isDenied || status.isPermanentlyDenied) {
       await openAppSettings();
       return;
     }
 
-    // Proceed if permission is granted
     if (status.isGranted) {
       final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
         final mimeType = lookupMimeType(pickedFile.path);
         if (mimeType != null && mimeType.startsWith('image')) {
           setState(() => _image = pickedFile);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a valid image file.')),
+          );
+          return;
         }
       }
     }
 
-    // Exit if no image is selected
-    if (_image == null) return;
+    // Check if _image is null before proceeding with the upload
+    if (_image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No image selected.')),
+      );
+      return;
+    }
 
-    // Prepare the API request
     var uri = Uri.parse('$baseurl/api/users/${widget.userIdd}/');
     var request = http.MultipartRequest('PATCH', uri);
     request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
 
     try {
-      // Send the request
       var response = await request.send();
-
-      // Handle successful response
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final responseData = await response.stream.bytesToString();
         final decodedData = jsonDecode(responseData);
         final imageUrl = decodedData['image'];
 
         if (imageUrl != null) {
-          // Save the image URL to secure storage
           await _secureStorage.write(key: 'image', value: imageUrl);
-
-          // Update the state with the new image URL
+          context.read<UserDataBloc>().add(UserDataLoaded());
           setState(() => _image = XFile(imageUrl));
         }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to upload image: ${response.statusCode}')),
+        );
       }
     } catch (e) {
       print('Error uploading image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading image: $e')),
+      );
     }
   }
 

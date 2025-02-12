@@ -1,11 +1,12 @@
 // ignore_for_file: avoid_print
 import 'dart:convert';
+import 'dart:io';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/config/global.dart';
 import 'package:attendance2/department/leave/screens/apply_leave.dart';
-import 'package:attendance2/department/leave/screens/edit_leave.dart';
 import 'package:attendance2/main.dart';
+import 'package:attendance2/staff/leave/screens/edit_leavescreen.dart';
 import 'package:custom_sliding_segmented_control/custom_sliding_segmented_control.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -17,26 +18,34 @@ import 'package:intl/intl.dart';
 class DLeaves extends StatefulWidget {
   final int userId;
   const DLeaves({super.key, required this.userId});
+
   @override
-  State<DLeaves> createState() => _LeavesState();
+  State<DLeaves> createState() => _DLeavesState();
 }
 
-class _LeavesState extends State<DLeaves> {
+class _DLeavesState extends State<DLeaves> {
   List<Map<String, dynamic>> leaveApplications = [];
+  List<Map<String, dynamic>> filteredLeaveApplications = [];
+  bool isLoading = true;
   FlutterSecureStorage secureStorage = const FlutterSecureStorage();
-
+  int selectedTab = 1;
   @override
   void initState() {
     super.initState();
-    fetchLeaveApplications(); // Fetch leave applications on widget init
+    fetchLeaveApplications();
   }
 
   Future<void> fetchLeaveApplications() async {
-    // Access the UserDataBloc's current state
-    final userDataState = context.read<UserDataBloc>().state;
+    final currentState = context.read<UserDataBloc>().state;
 
-    if (userDataState is UserDataLoadedState) {
-      final token = userDataState.token;
+    if (currentState is UserDataLoadedState) {
+      final token = currentState.token;
+
+      print(token);
+
+      if (token.isEmpty) {
+        throw Exception('Authentication token not found');
+      }
 
       final headers = {
         'Authorization': 'Bearer $token',
@@ -45,11 +54,14 @@ class _LeavesState extends State<DLeaves> {
 
       try {
         final response = await http.get(
-          Uri.parse('$baseurl/api/leave/own_leaves/'),
+          Uri.parse('$baseurl/api/leave/'),
           headers: headers,
         );
 
-        if (response.statusCode == 200) {
+        print('Status Code: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
           final data = json.decode(response.body);
 
           // The response is a list of leave applications
@@ -65,21 +77,75 @@ class _LeavesState extends State<DLeaves> {
                 'startDate': leave['start_date'], // Use 'start_date'
                 'endDate': leave['end_date'], // Use 'end_date'
                 'leaveType': leave['leave_type'], // Use 'leave_type'
-                'status': leave['status'], // Map 'is_approved' to 'status'
-                'leaveReason': leave['reason'], // Use 'reason'
+                'status': leave['status'],
+                'leaveReason': leave['reason'],
+                'user_image': leave['user_image'],
+                // Use 'reason'
               };
             }).toList();
+            filterLeaveApplications();
           });
         } else {
-          print(
-              'Failed to load leave applications. Status Code: ${response.statusCode}');
-          print('Response Body: ${response.body}');
+          print('Failed to load leave applications: ${response.body}');
+          ScaffoldMessenger.of(
+            navigatorKey.currentContext!,
+          ).showSnackBar(
+            SnackBar(
+              content:
+                  Text("Failed to load leave applications. Please try again."),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
+      } on SocketException catch (e) {
+        print('No internet connection: $e');
+        ScaffoldMessenger.of(
+          navigatorKey.currentContext!,
+        ).showSnackBar(
+          SnackBar(
+            content: Text("No internet connection. Please try again later."),
+            backgroundColor: Colors.red,
+          ),
+        );
       } catch (e) {
-        print('Error fetching leave applications: $e');
+        print('Error occurred: $e');
+        ScaffoldMessenger.of(
+          navigatorKey.currentContext!,
+        ).showSnackBar(
+          SnackBar(
+            content: Text("An error occurred. Please try again."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        setState(() {
+          isLoading =
+              false; // Set loading state to false after the fetch completes
+        });
       }
     } else {
-      print('User is not authenticated. Token not available.');
+      throw Exception('User is not authenticated or user data is not loaded');
+    }
+  }
+
+// Filter leave applications based on selected leave type
+  void filterLeaveApplications() {
+    switch (selectedTab) {
+      case 1:
+        filteredLeaveApplications = leaveApplications; // All
+        break;
+      case 2:
+        filteredLeaveApplications = leaveApplications
+            .where((leave) => leave['leaveType'] == 'casual')
+            .toList();
+        break;
+      case 3:
+        filteredLeaveApplications = leaveApplications
+            .where((leave) => leave['leaveType'] == 'medical')
+            .toList();
+        break;
+      default:
+        filteredLeaveApplications = leaveApplications;
     }
   }
 
@@ -88,6 +154,7 @@ class _LeavesState extends State<DLeaves> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text(
           'Leaves',
@@ -103,113 +170,141 @@ class _LeavesState extends State<DLeaves> {
             size: 30,
           ),
           SizedBox(width: 10),
-          SizedBox(width: 10),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CustomSlidingSegmentedControl<int>(
-                  fixedWidth: screenWidth * 0.3,
-                  initialValue: 1,
-                  children: const {
-                    1: Text('All'),
-                    2: Text('Casual'),
-                    3: Text('Sick'),
-                  },
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.lightBackgroundGray,
-                    borderRadius: BorderRadius.circular(8),
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.primaryVelocity! < 0) {
+            // Swiped left (next tab)
+            if (selectedTab < 3) {
+              setState(() {
+                selectedTab++;
+                filterLeaveApplications();
+              });
+            }
+          } else if (details.primaryVelocity! > 0) {
+            // Swiped right (previous tab)
+            if (selectedTab > 1) {
+              setState(() {
+                selectedTab--;
+                filterLeaveApplications();
+              });
+            }
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CustomSlidingSegmentedControl<int>(
+                    fixedWidth: screenWidth * 0.3,
+                    initialValue: selectedTab,
+                    children: const {
+                      1: Text('All'),
+                      2: Text('Casual'),
+                      3: Text('Medical'),
+                    },
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.lightBackgroundGray,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    thumbDecoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(30),
+                          blurRadius: 4.0,
+                          spreadRadius: 1.0,
+                          offset: const Offset(0.0, 2.0),
+                        )
+                      ],
+                    ),
+                    curve: Curves.easeInToLinear,
+                    onValueChanged: (v) {
+                      setState(() {
+                        selectedTab = v;
+                        filterLeaveApplications();
+                      });
+                    },
                   ),
-                  thumbDecoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(30),
-                        blurRadius: 4.0,
-                        spreadRadius: 1.0,
-                        offset: const Offset(0.0, 2.0),
-                      )
-                    ],
-                  ),
-                  curve: Curves.easeInToLinear,
-                  onValueChanged: (v) {
-                    print(v);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: fetchLeaveApplications,
-                child: leaveApplications.isEmpty
-                    ? ListView(
-                        children: const [
-                          Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(top: 20.0),
-                              child: Text(
-                                "No leave requests found",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey,
+                ],
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: fetchLeaveApplications,
+                  child: isLoading
+                      ? Center(
+                          child: CircularProgressIndicator(),
+                        )
+                      : filteredLeaveApplications.isEmpty
+                          ? ListView(
+                              children: const [
+                                Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 20.0),
+                                    child: Text(
+                                      "No leave requests found",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
+                            )
+                          : ListView.builder(
+                              itemCount: filteredLeaveApplications.length,
+                              itemBuilder: (context, index) {
+                                final leave = filteredLeaveApplications[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16.0),
+                                  child: buildLeaveCard(
+                                    leave,
+                                    formatDateRange(
+                                        leave['startDate'], leave['endDate']),
+                                    leave['leaveType'],
+                                    leave['status'],
+                                    getStatusColor(leave['status']),
+                                    leave['leaveId'],
+                                  ),
+                                );
+                              },
                             ),
-                          ),
-                        ],
-                      )
-                    : ListView.builder(
-                        itemCount: leaveApplications.length,
-                        itemBuilder: (context, index) {
-                          final leave = leaveApplications[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: buildLeaveCard(
-                              leave,
-                              formatDateRange(
-                                  leave['startDate'], leave['endDate']),
-                              leave['leaveType'],
-                              leave['status'],
-                              getStatusColor(leave['status']),
-                              leave['leaveId'],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        DApplyLeaveScreen(userId: widget.userId),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
-                );
-              },
-              child: const Text(
-                "Apply Leave",
-                style: TextStyle(color: Colors.white),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DApplyLeaveScreen(
+                        userId: widget.userId,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text(
+                  "Apply Leave",
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -298,18 +393,24 @@ class _LeavesState extends State<DLeaves> {
             ),
             const SizedBox(width: 10),
             IconButton(
-              icon: Icon(Icons.edit, color: Colors.blue),
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EditScreen(leaveData: leave),
-                  ),
-                );
-                if (result == true) {
-                  fetchLeaveApplications();
-                }
-              },
+              icon: Icon(Icons.edit,
+                  color: status == 'approved' || status == 'rejected'
+                      ? Colors.grey
+                      : Colors.blue),
+              onPressed: status == 'approved' || status == 'rejected'
+                  ? null
+                  : () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EditLeaveScreen(leaveData: leave),
+                        ),
+                      );
+                      if (result == true) {
+                        fetchLeaveApplications();
+                      }
+                    },
             ),
             IconButton(
               icon: Icon(Icons.delete,
@@ -369,7 +470,8 @@ class _LeavesState extends State<DLeaves> {
       Uri.parse('$baseurl/api/leave/$leaveId/'),
       headers: headers,
     );
-
+    print(response.statusCode);
+    print(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       setState(() {
         leaveApplications.removeWhere((leave) => leave['leaveId'] == leaveId);
@@ -377,13 +479,23 @@ class _LeavesState extends State<DLeaves> {
       ScaffoldMessenger.of(
         navigatorKey.currentContext!,
       ).showSnackBar(
-        SnackBar(content: Text('Leave application deleted successfully')),
+        SnackBar(
+          behavior: SnackBarBehavior
+              .floating, // Ensures the SnackBar floats above the UI
+          content: Text('Leave application deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
     } else {
       ScaffoldMessenger.of(
         navigatorKey.currentContext!,
       ).showSnackBar(
-        SnackBar(content: Text('Failed to delete leave application')),
+        SnackBar(
+          behavior: SnackBarBehavior
+              .floating, // Ensures the SnackBar floats above the UI
+          content: Text('Failed to delete leave application'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

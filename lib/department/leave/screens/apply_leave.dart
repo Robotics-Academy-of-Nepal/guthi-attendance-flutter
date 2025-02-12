@@ -3,7 +3,6 @@ import 'package:attendance2/department/leave/services/apply_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:intl_phone_field/phone_number.dart';
 
 class DApplyLeaveScreen extends StatefulWidget {
   final int userId;
@@ -26,7 +25,7 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
   String? selectedLeaveType;
 
   // Controller for Phone Field (used as String)
-  String phoneNumber = '';
+  String? contactNumber;
   final storage = const FlutterSecureStorage();
   DateTime? _startDate;
   bool isEndDateEnabled = false;
@@ -69,10 +68,8 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
               ),
               const SizedBox(height: 16),
               PhoneFieldWidget(
-                label: "Contact Number",
-                onChanged: (phone) {
-                  phoneNumber = phone.completeNumber;
-                },
+                initialValue: contactNumber,
+                isEnabled: false, // Make it read-only
               ),
               const SizedBox(height: 16),
               DatePickerFieldWidget(
@@ -118,7 +115,7 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
                   final leaveData = {
                     'title': titleController.text,
                     'leave_type': selectedLeaveType,
-                    'contact_number': phoneNumber.toString(),
+                    'contact_number': contactNumber,
                     'start_date': startDateController.text,
                     'end_date': endDateController.text,
                     'reason': reasonController.text,
@@ -130,7 +127,7 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
                   _showSuccessBottomSheet(context);
                   titleController.clear();
                   selectedLeaveType = null;
-                  phoneNumber = '';
+
                   startDateController.clear();
                   endDateController.clear();
                   reasonController.clear();
@@ -365,17 +362,21 @@ class DropdownFieldWidget extends StatelessWidget {
 }
 
 class PhoneFieldWidget extends StatelessWidget {
-  final String label;
-  final Function(PhoneNumber) onChanged;
+  final String? initialValue;
+  final bool isEnabled;
 
-  const PhoneFieldWidget(
-      {super.key, required this.label, required this.onChanged});
+  const PhoneFieldWidget({
+    super.key,
+    this.initialValue,
+    this.isEnabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final controller = TextEditingController(text: initialValue);
+
     return IntlPhoneField(
       decoration: InputDecoration(
-        labelText: label,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8.0),
         ),
@@ -383,10 +384,17 @@ class PhoneFieldWidget extends StatelessWidget {
           horizontal: 16,
           vertical: 12,
         ),
+        filled: true,
+        fillColor: isEnabled
+            ? Colors.transparent
+            : Colors.grey[200], // Grey background when disabled
       ),
       initialCountryCode: 'NP', // Nepal
       showDropdownIcon: false, // Disable the dropdown for country selection
-      onChanged: onChanged,
+      enabled: isEnabled, // Make it read-only
+      controller: controller, // Use the controller to set the initial value
+      onChanged:
+          isEnabled ? (phone) {} : null, // Disable onChanged when not enabled
     );
   }
 }
@@ -424,8 +432,7 @@ class DatePickerFieldWidget extends StatelessWidget {
       ),
       onTap: enabled
           ? () async {
-              DateTime initialDate = firstDate ??
-                  DateTime.now(); // Default to today if firstDate is null
+              DateTime initialDate = firstDate ?? DateTime.now();
               DateTime? pickedDate = await showDatePicker(
                 context: context,
                 initialDate: initialDate,

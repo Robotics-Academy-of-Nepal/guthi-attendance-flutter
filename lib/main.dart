@@ -3,7 +3,6 @@ import 'package:attendance2/auth/screens/splash_screen.dart';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
 import 'package:attendance2/it_admin/navbar/bloc/navigation.dart';
 import 'package:attendance2/notification/notification_service.dart';
-import 'package:attendance2/staff/leave/screens/leave_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -54,10 +53,6 @@ class MyApp extends StatelessWidget {
         BlocProvider(
           create: (context) => UserDataBloc(flutterSecureStorage),
         ),
-        BlocProvider(
-            create: (context) => LeavesBloc(
-                  userDataBloc: context.read<UserDataBloc>(),
-                )..add(FetchLeavesEvent())),
         BlocProvider(
           create: (context) => LoginBloc(context.read<UserDataBloc>()),
         ),

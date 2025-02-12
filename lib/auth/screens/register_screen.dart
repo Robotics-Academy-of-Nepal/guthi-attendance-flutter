@@ -128,7 +128,7 @@ class RegisterPage extends StatelessWidget {
                           hintText: 'Contact Number',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide:   BorderSide.none,
+                            borderSide: BorderSide.none,
                           ),
                           fillColor: Colors.purple.withValues(alpha: 0.1),
                           filled: true,
@@ -223,7 +223,15 @@ class RegisterPage extends StatelessWidget {
       items: departments
           .map((department) => DropdownMenuItem<String>(
                 value: department['id'],
-                child: Text(department['name'] ?? ""),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxWidth: 200.0), // Adjust the maxWidth as needed
+                  child: Text(
+                    department['name'] ?? "",
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
               ))
           .toList(),
       onChanged: onChanged,
@@ -234,11 +242,12 @@ class RegisterPage extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
         ),
-       
         fillColor: Colors.purple.withAlpha(30),
         filled: true,
       ),
-      menuMaxHeight: 100.0, // Restricts dropdown height
+      menuMaxHeight: 200.0, // Restricts dropdown height
+      isExpanded:
+          true, // Ensures the dropdown menu matches the width of the button
     );
   }
 

@@ -39,7 +39,7 @@ class _ItProfileScreenState extends State<ItProfileScreen> {
 
     if (savedImageUrl != null) {
       setState(() {
-        _image = XFile(savedImageUrl.startsWith('http')
+        _image = XFile(savedImageUrl.startsWith('https')
             ? savedImageUrl
             : '$baseurl$savedImageUrl');
       });
@@ -86,7 +86,7 @@ class _ItProfileScreenState extends State<ItProfileScreen> {
                   return Column(
                     children: [
                       Text(
-                        ' ${state.firstName} ${state.lastName}',
+                        'Name: ${state.firstName} ${state.lastName}',
                         style: TextStyle(
                           fontSize: size.width * 0.05,
                           fontWeight: FontWeight.bold,
@@ -138,8 +138,8 @@ class _ItProfileScreenState extends State<ItProfileScreen> {
 
   Widget _buildProfileImage() {
     return Container(
-      width: 120, // Reduced size
-      height: 120, // Reduced size
+      width: 120,
+      height: 120,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
@@ -181,7 +181,7 @@ class _ItProfileScreenState extends State<ItProfileScreen> {
   Future<void> _uploadImage() async {
     // Request permission based on the platform
     final status = Platform.isAndroid
-        ? await Permission.storage.request()
+        ? await Permission.mediaLibrary.request()
         : await Permission.photos.request();
 
     // Handle denied or permanently denied permissions

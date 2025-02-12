@@ -38,6 +38,7 @@ class _ItAdminScreenState extends State<ItAdminScreen>
     _tabController =
         TabController(length: 3, vsync: this); // Change length to 2
     _tabController.addListener(() {
+      FocusScope.of(context).unfocus();
       if (_tabController.index == 1 && !_tabController.indexIsChanging) {
         _fetchDepartments();
       }
@@ -48,6 +49,7 @@ class _ItAdminScreenState extends State<ItAdminScreen>
   }
 
   Future<void> _createDepartment() async {
+    FocusScope.of(context).unfocus();
     final token = await secureStorage.read(key: 'auth_token');
     final departmentName = _departmentNameController.text.trim();
 
@@ -214,8 +216,10 @@ class _ItAdminScreenState extends State<ItAdminScreen>
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    if (!mounted) return; // Prevents using context if the widget is unmounted
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -248,92 +252,122 @@ class _ItAdminScreenState extends State<ItAdminScreen>
   }
 
   Widget _buildTransferStaffTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Transfer Staff"),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: "From Department",
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.apartment),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Transfer Staff"),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: "From Department",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded border
+                ),
+                prefixIcon: Icon(Icons.apartment),
+              ),
+              menuMaxHeight: 150,
+              value: fromDeptId,
+              items: _departments
+                  .map((dept) => DropdownMenuItem(
+                        value: dept['id'].toString(),
+                        child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: 200.0),
+                            child: Text(
+                              dept['name'] ?? 'Unnamed Department',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            )),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  fromDeptId = value;
+                  _fetchStaff(value!);
+                });
+              },
             ),
-            value: fromDeptId,
-            items: _departments
-                .map((dept) => DropdownMenuItem(
-                      value: dept['id'].toString(),
-                      child: Text(dept['name'] ?? 'Unnamed Department'),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                fromDeptId = value;
-                _fetchStaff(value!);
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: "Select Staff",
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.person),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: "Select Staff",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded border
+                ),
+                prefixIcon: Icon(Icons.person),
+              ),
+              menuMaxHeight: 150,
+              value: staffId,
+              items: _staff
+                  .map((staff) => DropdownMenuItem(
+                        value: staff['id'].toString(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 200),
+                          child: Text(
+                            '${staff['first_name']} ${staff['last_name']}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  staffId = value;
+                });
+              },
             ),
-            value: staffId,
-            items: _staff
-                .map((staff) => DropdownMenuItem(
-                      value: staff['id'].toString(),
-                      child:
-                          Text('${staff['first_name']} ${staff['last_name']}'),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                staffId = value;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: "To Department",
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.apartment),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: "To Department",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded border
+                ),
+                prefixIcon: Icon(Icons.apartment),
+              ),
+              menuMaxHeight: 150,
+              value: toDeptId,
+              items: _departments
+                  .map((dept) => DropdownMenuItem(
+                        value: dept['id'].toString(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 200),
+                          child: Text(
+                            dept['name'] ?? 'Unnamed Department',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  toDeptId = value;
+                });
+              },
             ),
-            value: toDeptId,
-            items: _departments
-                .map((dept) => DropdownMenuItem(
-                      value: dept['id'].toString(),
-                      child: Text(dept['name'] ?? 'Unnamed Department'),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                toDeptId = value;
-              });
-            },
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              if (fromDeptId == null || toDeptId == null || staffId == null) {
-                _showSnackBar("Please select all fields");
-                return;
-              }
-              _transferStaff(toDeptId!, staffId!);
-            },
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-                backgroundColor: Colors.blue),
-            child: Text(
-              "Transfer Staff",
-              style: TextStyle(color: Colors.white),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                if (fromDeptId == null || toDeptId == null || staffId == null) {
+                  _showSnackBar("Please select all fields");
+                  return;
+                }
+                _transferStaff(toDeptId!, staffId!);
+              },
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                  backgroundColor: Colors.blue),
+              child: Text(
+                "Transfer Staff",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -380,75 +414,100 @@ class _ItAdminScreenState extends State<ItAdminScreen>
   }
 
   Widget _buildAssignHeadTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          DropdownButtonFormField<String?>(
-            value: _selectedDepartmentId,
-            items: _departments
-                .map((dept) => DropdownMenuItem<String?>(
-                      value: dept['id'].toString(),
-                      child: Text(dept['name']),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedDepartmentId = value;
-                if (value != null) {
-                  _fetchStaff(value);
-                }
-              });
-            },
-            decoration: InputDecoration(
-              labelText: 'Select Department',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.apartment),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            DropdownButtonFormField<String?>(
+              value: _selectedDepartmentId,
+              items: _departments
+                  .map((dept) => DropdownMenuItem<String?>(
+                        value: dept['id'].toString(),
+                        // Add padding to each dropdown item
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 200.0),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              dept['name'] ?? '',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedDepartmentId = value;
+                  if (value != null) {
+                    _fetchStaff(value);
+                  }
+                });
+              },
+              decoration: InputDecoration(
+                labelText: 'Select Department',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded border
+                ),
+                prefixIcon: Icon(Icons.apartment),
+              ),
+              menuMaxHeight: 200, // Limit the height of the dropdown menu
             ),
-          ),
-          SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _selectedStaffId,
-            items: _staff
-                .map((staff) => DropdownMenuItem<String>(
-                      value: staff['id'].toString(),
-                      child: Text(
-                          '${staff['first_name']} ${staff['last_name']}'), // Concatenate first and last name
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedStaffId = value;
-              });
-            },
-            decoration: InputDecoration(
-              labelText: 'Select Staff',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.person),
+            SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedStaffId,
+              items: _staff
+                  .map((staff) => DropdownMenuItem<String>(
+                        value: staff['id'].toString(),
+                        // Add padding to each dropdown item
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 200),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              '${staff['first_name']} ${staff['last_name']}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedStaffId = value;
+                });
+              },
+              decoration: InputDecoration(
+                labelText: 'Select Staff',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded border
+                ),
+                prefixIcon: Icon(Icons.person),
+              ),
+              menuMaxHeight: 200, // Limit the height of the dropdown menu
             ),
-          ),
-          SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _assignDepartmentHead,
-            icon: Icon(
-              Icons.done,
-              color: Colors.white,
-            ),
-            label: Text('Assign Head'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  Colors.blue, // Sets the button's background color to blue
-              foregroundColor:
-                  Colors.white, // Sets the text and icon color to white
-              padding: EdgeInsets.symmetric(
-                  horizontal: 16.0, vertical: 12.0), // Optional padding
-              shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(8.0), // Optional rounded corners
+            SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _assignDepartmentHead,
+              icon: Icon(
+                Icons.done,
+                color: Colors.white,
+              ),
+              label: Text('Assign Head'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

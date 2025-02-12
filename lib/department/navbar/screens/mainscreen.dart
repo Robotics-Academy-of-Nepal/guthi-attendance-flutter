@@ -35,7 +35,9 @@ class _DMainScreenState extends State<DMainScreen> {
   Widget build(BuildContext context) {
     // List of screens for navigation
     final List<Widget> screens = [
-      DHomeScreen(),
+      DHomeScreen(
+        userId: widget.userId,
+      ),
       DLeaves(userId: widget.userId),
       DLeaveRequestScreen(userId: widget.userId),
       DMyActivityScreen(userId: widget.userId),

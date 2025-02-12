@@ -17,12 +17,17 @@ Widget buildLeaveCard(Map<String, dynamic> leave,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            backgroundImage: leave['profileImage'] != null
-                ? NetworkImage(leave['profileImage']) as ImageProvider
-                : const AssetImage('assets/images/demo profile.jpg'),
-            radius: 25,
-          ),
+          // Display user image
+          if (leave['user_image'] != null && leave['user_image'].isNotEmpty)
+            CircleAvatar(
+              radius: 25,
+              backgroundImage: NetworkImage(leave['user_image']),
+            ),
+          if (leave['user_image'] == null || leave['user_image'].isEmpty)
+            CircleAvatar(
+              radius: 25,
+              child: Icon(Icons.person, size: 30),
+            ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

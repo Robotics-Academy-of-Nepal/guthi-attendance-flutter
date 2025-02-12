@@ -28,7 +28,7 @@ class LeaveService {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final responseData = jsonDecode(response.body);
-
+        print(responseData);
         if (responseData is List) {
           return responseData
               .where((leave) {
@@ -48,9 +48,6 @@ class LeaveService {
                     'endDate': leave['end_date'] ?? '',
                     'status': leave['status'],
                     'leaveType': leave['leave_type'],
-                    'profileImage': leave['profile_image'] != null
-                        ? '$baseurl${leave['profile_image']}'
-                        : null,
                   })
               .toList();
         } else {

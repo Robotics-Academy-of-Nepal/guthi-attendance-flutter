@@ -52,7 +52,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
         print(
             'Response status code: ${response.statusCode}'); // Debug statement
-        print('Response body: ${response.body}'); // Debug statement
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
           final responseData = jsonDecode(response.body);

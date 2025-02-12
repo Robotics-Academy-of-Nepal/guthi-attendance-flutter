@@ -1,1 +1,2 @@
-const baseurl = "http://192.168.1.84:8000";
+const baseurl = "https://guthi-attendance.goodwish.com.np";
+// https://guthi-attendance.goodwish.com.np

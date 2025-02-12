@@ -92,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 20),
                   // App Name
                   const Text(
-                    "Easy Attendance",
+                    "Guthi Attendance",
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,

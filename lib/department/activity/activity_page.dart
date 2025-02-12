@@ -59,7 +59,7 @@ class _DMyActivityScreenState extends State<DMyActivityScreen> {
         // Generate attendance records for each day from the first recorded date
         DateTime startDate =
             DateTime(2025, 1, 1); // Start tracking from Jan 1, 2025
-        DateTime endDate = DateTime.now();
+        DateTime endDate = DateTime.now().subtract(const Duration(days: 1));
 
         List<Map<String, String>> updatedActivities = [];
         for (DateTime date = startDate;

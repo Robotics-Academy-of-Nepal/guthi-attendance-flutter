@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:attendance2/auth/screens/login_screen.dart';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
+import 'package:attendance2/auth/userdata_bloc/event.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/config/global.dart';
 import 'package:attendance2/main.dart';
@@ -181,7 +182,7 @@ class _DProfileScreenState extends State<DProfileScreen> {
   Future<void> _uploadImage() async {
     // Request permission based on the platform
     final status = Platform.isAndroid
-        ? await Permission.storage.request()
+        ? await Permission.mediaLibrary.request()
         : await Permission.photos.request();
 
     // Handle denied or permanently denied permissions
@@ -222,6 +223,7 @@ class _DProfileScreenState extends State<DProfileScreen> {
         if (imageUrl != null) {
           // Save the image URL to secure storage
           await _secureStorage.write(key: 'image', value: imageUrl);
+          context.read<UserDataBloc>().add(UserDataLoaded());
 
           // Update the state with the new image URL
           setState(() => _image = XFile(imageUrl));

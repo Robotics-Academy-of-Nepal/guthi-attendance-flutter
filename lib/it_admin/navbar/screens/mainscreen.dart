@@ -1,4 +1,5 @@
 import 'package:attendance2/it_admin/department/home/admin_screen.dart';
+import 'package:attendance2/it_admin/holidays/create_holiday.dart';
 import 'package:attendance2/it_admin/navbar/bloc/navigation.dart';
 import 'package:attendance2/it_admin/navbar/screens/bottom_navigation.dart';
 import 'package:attendance2/it_admin/profile/profile.dart';
@@ -29,11 +30,11 @@ class _ItMainScreenState extends State<ItMainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // List of screens for navigation
     final List<Widget> screens = [
       ItAdminScreen(
         userId: widget.userId,
       ),
+      HolidayScreen(),
       ItProfileScreen(userIdd: widget.userId)
     ];
 
