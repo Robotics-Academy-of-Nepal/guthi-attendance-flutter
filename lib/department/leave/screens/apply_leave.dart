@@ -1,8 +1,12 @@
 // ignore_for_file: avoid_print
+import 'dart:convert';
+
 import 'package:attendance2/department/leave/services/apply_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:attendance2/config/global.dart';
+import 'package:http/http.dart' as http;
 
 class DApplyLeaveScreen extends StatefulWidget {
   final int userId;
@@ -22,13 +26,64 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
   TextEditingController startDateController = TextEditingController();
   TextEditingController endDateController = TextEditingController();
 
-  String? selectedLeaveType;
+  String? selectedLeaveTypeId;
 
   // Controller for Phone Field (used as String)
   String? contactNumber;
+  String? userId;
   final storage = const FlutterSecureStorage();
   DateTime? _startDate;
   bool isEndDateEnabled = false;
+  // List to store fetched leave types
+  List<Map<String, dynamic>> leaveTypes =
+      []; // Store leave types with ID and name
+  bool isLoadingLeaveTypes = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+    _fetchLeaveTypes(); // Fetch leave types from the API
+  }
+
+  Future<void> _fetchUserData() async {
+    // Fetch the contact number and user ID from secure storage
+    contactNumber = await storage.read(key: 'contact_number');
+    userId = await storage.read(key: 'id');
+    print(contactNumber);
+    setState(() {}); // Update the UI with the fetched data
+  }
+
+  // Fetch leave types from the API
+  Future<void> _fetchLeaveTypes() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/leave-type/'),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final List<dynamic> data = json.decode(response.body);
+        print(data);
+
+        setState(() {
+          leaveTypes = data
+              .map((type) => {
+                    'id': type['id'].toString(), // Store ID as a string
+                    'name': type['name'].toString(), // Store name
+                  })
+              .toList();
+          isLoadingLeaveTypes = false;
+        });
+      } else {
+        throw Exception('Failed to load leave types');
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingLeaveTypes = false;
+      });
+      print('Error fetching leave types: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,22 +105,23 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
                 controller: titleController,
               ),
               const SizedBox(height: 20),
-              DropdownFieldWidget(
-                items: const [
-                  DropdownMenuItem(
-                      value: "medical", child: Text("Medical Leave")),
-                  DropdownMenuItem(
-                      value: "casual", child: Text("Casual Leave")),
-                  DropdownMenuItem(value: "other", child: Text("Other")),
-                ],
-                label: "Leave Type",
-                selectedValue: selectedLeaveType,
-                onChanged: (value) {
-                  setState(() {
-                    selectedLeaveType = value;
-                  });
-                },
-              ),
+              isLoadingLeaveTypes
+                  ? const CircularProgressIndicator()
+                  : DropdownFieldWidget(
+                      label: "Leave Type",
+                      selectedValue: selectedLeaveTypeId,
+                      items: leaveTypes
+                          .map((type) => DropdownMenuItem<String>(
+                                value: type['id'], // Use ID as the value
+                                child: Text(type['name']), // Display name
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedLeaveTypeId = value; // Store the selected ID
+                        });
+                      },
+                    ),
               const SizedBox(height: 16),
               PhoneFieldWidget(
                 initialValue: contactNumber,
@@ -114,7 +170,7 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
                 onPressed: () async {
                   final leaveData = {
                     'title': titleController.text,
-                    'leave_type': selectedLeaveType,
+                    'leave_type': selectedLeaveTypeId,
                     'contact_number': contactNumber,
                     'start_date': startDateController.text,
                     'end_date': endDateController.text,
@@ -126,7 +182,7 @@ class _ApplyLeaveScreenState extends State<DApplyLeaveScreen> {
                   await leaveService.submitLeaveApplication(leaveData);
                   _showSuccessBottomSheet(context);
                   titleController.clear();
-                  selectedLeaveType = null;
+                  selectedLeaveTypeId = null;
 
                   startDateController.clear();
                   endDateController.clear();

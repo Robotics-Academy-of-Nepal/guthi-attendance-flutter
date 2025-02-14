@@ -1,4 +1,7 @@
 // ignore_for_file: avoid_print
+import 'dart:convert';
+import 'package:attendance2/config/global.dart';
+import 'package:http/http.dart' as http;
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
 import 'package:attendance2/main.dart';
 import 'package:attendance2/staff/leave/services/leave_service.dart';
@@ -23,7 +26,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
   TextEditingController startDateController = TextEditingController();
   TextEditingController endDateController = TextEditingController();
 
-  String? selectedLeaveType;
+  String? selectedLeaveTypeId; // Store the selected leave type ID
 
   // Controller for Phone Field (used as String)
   String? contactNumber;
@@ -32,10 +35,16 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
   DateTime? _startDate;
   bool isEndDateEnabled = false;
 
+  // List to store fetched leave types
+  List<Map<String, dynamic>> leaveTypes =
+      []; // Store leave types with ID and name
+  bool isLoadingLeaveTypes = true;
+
   @override
   void initState() {
     super.initState();
     _fetchUserData();
+    _fetchLeaveTypes(); // Fetch leave types from the API
   }
 
   Future<void> _fetchUserData() async {
@@ -44,6 +53,37 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
     userId = await storage.read(key: 'id');
     print(contactNumber);
     setState(() {}); // Update the UI with the fetched data
+  }
+
+  // Fetch leave types from the API
+  Future<void> _fetchLeaveTypes() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/api/leave-type/'),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final List<dynamic> data = json.decode(response.body);
+        print(data);
+
+        setState(() {
+          leaveTypes = data
+              .map((type) => {
+                    'id': type['id'].toString(), // Store ID as a string
+                    'name': type['name'].toString(), // Store name
+                  })
+              .toList();
+          isLoadingLeaveTypes = false;
+        });
+      } else {
+        throw Exception('Failed to load leave types');
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingLeaveTypes = false;
+      });
+      print('Error fetching leave types: $e');
+    }
   }
 
   @override
@@ -66,22 +106,24 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                 controller: titleController,
               ),
               const SizedBox(height: 20),
-              DropdownFieldWidget(
-                items: const [
-                  DropdownMenuItem(
-                      value: "medical", child: Text("Medical Leave")),
-                  DropdownMenuItem(
-                      value: "casual", child: Text("Casual Leave")),
-                  DropdownMenuItem(value: "other", child: Text("Other")),
-                ],
-                label: "Leave Type",
-                selectedValue: selectedLeaveType,
-                onChanged: (value) {
-                  setState(() {
-                    selectedLeaveType = value;
-                  });
-                },
-              ),
+              // Dropdown for leave types
+              isLoadingLeaveTypes
+                  ? const CircularProgressIndicator()
+                  : DropdownFieldWidget(
+                      label: "Leave Type",
+                      selectedValue: selectedLeaveTypeId,
+                      items: leaveTypes
+                          .map((type) => DropdownMenuItem<String>(
+                                value: type['id'], // Use ID as the value
+                                child: Text(type['name']), // Display name
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedLeaveTypeId = value; // Store the selected ID
+                        });
+                      },
+                    ),
               const SizedBox(height: 16),
               PhoneFieldWidget(
                 initialValue: contactNumber,
@@ -130,7 +172,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                 onPressed: () async {
                   final leaveData = {
                     'title': titleController.text,
-                    'leave_type': selectedLeaveType,
+                    'leave_type': selectedLeaveTypeId, // Send the leave type ID
                     'contact_number': contactNumber,
                     'start_date': startDateController.text,
                     'end_date': endDateController.text,
@@ -145,7 +187,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                     navigatorKey.currentContext!,
                   );
                   titleController.clear();
-                  selectedLeaveType = null;
+                  selectedLeaveTypeId = null;
                   startDateController.clear();
                   endDateController.clear();
                   reasonController.clear();
@@ -159,6 +201,40 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class DropdownFieldWidget extends StatelessWidget {
+  final String label;
+  final String? selectedValue;
+  final List<DropdownMenuItem<String>> items;
+  final Function(String?) onChanged;
+
+  const DropdownFieldWidget({
+    super.key,
+    required this.label,
+    required this.selectedValue,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+      ),
+      value: selectedValue,
+      items: items,
+      onChanged: onChanged,
     );
   }
 }
@@ -341,40 +417,6 @@ class TextFieldWidget extends StatelessWidget {
           vertical: 12,
         ),
       ),
-    );
-  }
-}
-
-class DropdownFieldWidget extends StatelessWidget {
-  final String label;
-  final String? selectedValue;
-  final List<DropdownMenuItem<String>> items;
-  final Function(String?) onChanged;
-
-  const DropdownFieldWidget({
-    super.key,
-    required this.label,
-    required this.selectedValue,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-      ),
-      value: selectedValue,
-      items: items,
-      onChanged: onChanged,
     );
   }
 }

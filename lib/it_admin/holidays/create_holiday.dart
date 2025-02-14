@@ -17,6 +17,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
   DateTime _focusedDay = DateTime.now();
   final List<DateTime> _selectedDates = [];
   final List<DateTime> _disabledDates = [];
+  final TextEditingController _leaveTypeController = TextEditingController();
 
   @override
   void initState() {
@@ -24,74 +25,87 @@ class _HolidayScreenState extends State<HolidayScreen> {
     _fetchHolidays();
   }
 
-  // Function to fetch already selected holidays
+  @override
+  void dispose() {
+    _leaveTypeController.dispose();
+    super.dispose();
+  }
 
+  // Fetch already selected holidays
   Future<void> _fetchHolidays() async {
     final url = Uri.parse('$baseurl/api/holiday/');
 
     try {
       final response = await http.get(url);
-      print(response.body);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          _disabledDates.clear();
-          for (var item in data) {
-            // Normalize the DateTime by stripping the time component
-            final date = DateTime.parse(item['date']);
-            _disabledDates.add(DateTime(date.year, date.month, date.day));
-          }
-        });
+        if (mounted) {
+          setState(() {
+            _disabledDates.clear();
+            for (var item in data) {
+              final date = DateTime.parse(item['date']);
+              _disabledDates.add(DateTime(date.year, date.month, date.day));
+            }
+          });
+        }
       } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to fetch holidays'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } on SocketException catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to fetch holidays'),
+            content: Text('Network error'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } on SocketException catch (e) {
-      // Handle network-related errors
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Network error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } on FormatException catch (e) {
-      // Handle JSON parsing errors
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Data parsing error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } on HttpException catch (e) {
-      // Handle HTTP-specific errors
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('HTTP error:'),
-          backgroundColor: Colors.red,
-        ),
-      );
     } on Exception catch (e) {
-      // Handle all other exceptions
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('An unexpected error occurred'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
+  // Save holidays
   Future<void> _saveHoliday(List<DateTime> selectedDates) async {
     final url = Uri.parse('$baseurl/api/holiday/');
 
+    // Filter out dates that are already in _disabledDates
+    final newDates = selectedDates.where((date) {
+      final normalizedDate = DateTime(date.year, date.month, date.day);
+      return !_disabledDates.contains(normalizedDate);
+    }).toList();
+
+    if (newDates.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'No new dates to save. All selected dates are already holidays.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
-      // Format the dates as a list of strings
-      final formattedDates = selectedDates.map((selectedDate) {
+      final formattedDates = newDates.map((selectedDate) {
         return "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}";
       }).toList();
 
@@ -106,67 +120,75 @@ class _HolidayScreenState extends State<HolidayScreen> {
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Holidays saved for $formattedDates'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _fetchHolidays(); // Refresh the list of disabled dates
+        if (mounted) {
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Holidays saved for $formattedDates'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _fetchHolidays(); // Refresh the list of disabled dates
+        }
       } else {
-        // Handle non-success status codes
         _handleErrorResponse(response);
       }
     } on SocketException catch (e) {
-      // Handle network errors
-      _showUserFriendlyMessage(
-          'No internet connection. Please check your network and try again.');
+      if (mounted) {
+        _showUserFriendlyMessage(
+            'No internet connection. Please check your network and try again.');
+      }
       debugPrint('Network error: ${e.message}');
     } on FormatException catch (e) {
-      // Handle JSON encoding/decoding errors
-      _showUserFriendlyMessage(
-          'Failed to process data. Please try again later.');
+      if (mounted) {
+        _showUserFriendlyMessage(
+            'Failed to process data. Please try again later.');
+      }
       debugPrint('JSON encoding error: ${e.message}');
     } on HttpException catch (e) {
-      // Handle HTTP-specific errors
-      _showUserFriendlyMessage(
-          'Failed to save holidays. Please try again later.');
+      if (mounted) {
+        _showUserFriendlyMessage(
+            'Failed to save holidays. Please try again later.');
+      }
       debugPrint('HTTP error: ${e.message}');
     } on Exception catch (e) {
-      // Handle all other exceptions
-      _showUserFriendlyMessage('Something went wrong. Please try again later.');
+      if (mounted) {
+        _showUserFriendlyMessage(
+            'Something went wrong. Please try again later.');
+      }
       debugPrint('Unexpected error: ${e.toString()}');
     }
   }
 
   void _handleErrorResponse(http.Response response) {
-    // Log the raw error for debugging
     debugPrint(
         'Failed to save holidays. Status code: ${response.statusCode}, Response: ${response.body}');
 
-    // Show a user-friendly message based on the status code
-    if (response.statusCode >= 500) {
-      _showUserFriendlyMessage('Server error. Please try again later.');
-    } else if (response.statusCode == 404) {
-      _showUserFriendlyMessage('Resource not found. Please check the URL.');
-    } else if (response.statusCode == 400) {
-      _showUserFriendlyMessage(
-          'Invalid data. Please check your input and try again.');
-    } else {
-      _showUserFriendlyMessage(
-          'Failed to save holidays. Please try again later.');
+    if (mounted) {
+      if (response.statusCode >= 500) {
+        _showUserFriendlyMessage('Server error. Please try again later.');
+      } else if (response.statusCode == 404) {
+        _showUserFriendlyMessage('Resource not found. Please check the URL.');
+      } else if (response.statusCode == 400) {
+        _showUserFriendlyMessage(
+            'Invalid data. Please check your input and try again.');
+      } else {
+        _showUserFriendlyMessage(
+            'Failed to save holidays. Please try again later.');
+      }
     }
   }
 
   void _showUserFriendlyMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -178,7 +200,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
           style: TextStyle(color: Colors.white),
         ),
         centerTitle: true,
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.blue,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -221,7 +243,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
                 },
                 calendarStyle: CalendarStyle(
                   selectedDecoration: BoxDecoration(
-                    color: Colors.deepPurple,
+                    color: Colors.blue,
                     shape: BoxShape.circle,
                   ),
                   disabledTextStyle: TextStyle(color: Colors.red),
@@ -237,7 +259,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
                   titleCentered: true,
                   formatButtonShowsNext: false,
                   formatButtonDecoration: BoxDecoration(
-                    color: Colors.deepPurple,
+                    color: Colors.blue,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   formatButtonTextStyle: const TextStyle(
@@ -248,11 +270,11 @@ class _HolidayScreenState extends State<HolidayScreen> {
                   rightChevronVisible: true,
                   leftChevronIcon: const Icon(
                     Icons.chevron_left,
-                    color: Colors.deepPurple,
+                    color: Colors.blue,
                   ),
                   rightChevronIcon: const Icon(
                     Icons.chevron_right,
-                    color: Colors.deepPurple,
+                    color: Colors.blue,
                   ),
                 ),
                 enabledDayPredicate: (day) {
@@ -263,12 +285,13 @@ class _HolidayScreenState extends State<HolidayScreen> {
               ),
 
               const SizedBox(height: 20),
-              // Save Button
-              ElevatedButton(
+              // Save Button for Holidays
+              ElevatedButton.icon(
                 onPressed: () {
                   if (_selectedDates.isNotEmpty) {
-                    _saveHoliday(_selectedDates); // Pass the list of dates
+                    _saveHoliday(_selectedDates);
                   } else {
+                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text('Please select at least one date!'),
@@ -278,14 +301,15 @@ class _HolidayScreenState extends State<HolidayScreen> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: Colors.blue,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
+                icon: const Icon(Icons.event_available, color: Colors.white),
+                label: const Text(
                   'Save Holiday',
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),

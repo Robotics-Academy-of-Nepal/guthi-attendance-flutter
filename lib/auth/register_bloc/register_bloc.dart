@@ -100,6 +100,13 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         emit(state.copyWith(errorMessage: "Please fill all the fields."));
         return;
       }
+
+      if (state.password.length < 8) {
+        emit(state.copyWith(
+            errorMessage: "Password must be at least 8 characters long."));
+        return;
+      }
+
       if (state.password != state.confirmPassword) {
         emit(state.copyWith(errorMessage: "Passwords do not match"));
         return;

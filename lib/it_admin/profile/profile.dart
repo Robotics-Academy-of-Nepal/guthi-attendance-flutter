@@ -39,7 +39,8 @@ class _ItProfileScreenState extends State<ItProfileScreen> {
 
     if (savedImageUrl != null) {
       setState(() {
-        _image = XFile(savedImageUrl.startsWith('https')
+        _image = XFile(savedImageUrl
+                .startsWith('http') // Check for both 'http' and 'https'
             ? savedImageUrl
             : '$baseurl$savedImageUrl');
       });
@@ -64,6 +65,10 @@ class _ItProfileScreenState extends State<ItProfileScreen> {
               onPressed: _uploadImage,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(8.0), // Optional rounded corners
+                ),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 8), // Reduced padding
                 minimumSize: const Size(

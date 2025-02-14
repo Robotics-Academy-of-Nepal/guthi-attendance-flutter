@@ -30,15 +30,17 @@ class _MyActivityScreenState extends State<MyActivityScreen> {
 
   Future<void> fetchAttendanceData() async {
     selectedStudent = await secureStorage.read(key: 'first_name');
-    setState(() {
-      isLoading = true;
-      isError = false;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        isError = false;
+      });
+    }
 
     String startDate = DateFormat('yyyy-MM-dd')
         .format(DateTime.now().subtract(const Duration(days: 30)));
     String yesterdayDate = DateFormat('yyyy-MM-dd')
-        .format(DateTime.now().subtract(Duration(days: 1)));
+        .format(DateTime.now().subtract(const Duration(days: 1)));
     print(startDate);
     String apiUrl =
         '$baseurl/api/accesslog/?user_id=${widget.userId}&start_time=$startDate&end_time=$yesterdayDate';
@@ -72,18 +74,22 @@ class _MyActivityScreenState extends State<MyActivityScreen> {
           });
         }
 
-        setState(() {
-          filteredActivities = updatedActivities;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            filteredActivities = updatedActivities;
+            isLoading = false;
+          });
+        }
       } else {
         throw Exception("Failed to fetch data");
       }
     } catch (e) {
-      setState(() {
-        isError = true;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isError = true;
+          isLoading = false;
+        });
+      }
       print("Error fetching data: $e");
     }
   }

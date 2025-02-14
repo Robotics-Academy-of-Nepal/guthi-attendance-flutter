@@ -1,4 +1,5 @@
 import 'package:attendance2/admin/leave/screens/leave_screen.dart';
+import 'package:attendance2/admin/logs/logs.dart';
 import 'package:attendance2/admin/navbarr/bloc/navigation_cubit.dart';
 import 'package:attendance2/admin/navbarr/screens/bottom_navigation.dart';
 import 'package:attendance2/admin/profile/screens/profile_screen.dart';
@@ -34,6 +35,7 @@ class _AMainScreenState extends State<AMainScreen> {
       ALeaveScreen(
         userId: widget.userId,
       ),
+      Logs(),
       AProfileScreen(
         userIdd: widget.userId,
       )

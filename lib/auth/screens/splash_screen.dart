@@ -1,10 +1,10 @@
+import 'package:attendance2/admin/navbarr/screens/mainscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
 import 'package:attendance2/auth/userdata_bloc/event.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/it_admin/navbar/screens/mainscreen.dart';
-import 'package:attendance2/admin/navbarr/screens/mainscreen.dart';
 import 'package:attendance2/auth/screens/login_screen.dart';
 import 'package:attendance2/department/navbar/screens/mainscreen.dart';
 import 'package:attendance2/staff/navbar/screens/mainscreen.dart';

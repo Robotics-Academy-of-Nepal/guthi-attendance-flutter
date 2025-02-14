@@ -7,8 +7,6 @@ import 'package:attendance2/config/global.dart';
 import 'package:attendance2/main.dart';
 import 'package:attendance2/staff/leave/screens/apply_leave.dart';
 import 'package:attendance2/staff/leave/screens/edit_leavescreen.dart';
-import 'package:custom_sliding_segmented_control/custom_sliding_segmented_control.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -24,10 +22,9 @@ class Leaves extends StatefulWidget {
 
 class _LeavesState extends State<Leaves> {
   List<Map<String, dynamic>> leaveApplications = [];
-  List<Map<String, dynamic>> filteredLeaveApplications = [];
   bool isLoading = true;
   FlutterSecureStorage secureStorage = const FlutterSecureStorage();
-  int selectedTab = 1;
+
   @override
   void initState() {
     super.initState();
@@ -66,90 +63,77 @@ class _LeavesState extends State<Leaves> {
           // The response is a list of leave applications
           final applications = List<Map<String, dynamic>>.from(data);
 
-          setState(() {
-            leaveApplications = applications.map((leave) {
-              return {
-                'leaveId': leave['id'], // Use 'id' instead of '_id'
-                'title': leave['title'],
-                'contactNumber':
-                    leave['contact_number'], // Use 'contact_number'
-                'startDate': leave['start_date'], // Use 'start_date'
-                'endDate': leave['end_date'], // Use 'end_date'
-                'leaveType': leave['leave_type'], // Use 'leave_type'
-                'status': leave['status'],
-                'leaveReason': leave['reason'], // Use 'reason'
-              };
-            }).toList();
-            filterLeaveApplications();
-          });
+          if (mounted) {
+            setState(() {
+              leaveApplications = applications.map((leave) {
+                return {
+                  'leaveId': leave['id'], // Use 'id' instead of '_id'
+                  'title': leave['title'],
+                  'contactNumber':
+                      leave['contact_number'], // Use 'contact_number'
+                  'startDate': leave['start_date'], // Use 'start_date'
+                  'endDate': leave['end_date'], // Use 'end_date'
+                  'leaveType': leave['leave_type']
+                      ['name'], // Extract 'name' from 'leave_type'
+                  'status': leave['status'],
+                  'leaveReason': leave['reason'], // Use 'reason'
+                };
+              }).toList();
+            });
+          }
         } else {
           print('Failed to load leave applications: ${response.body}');
+          if (mounted) {
+            ScaffoldMessenger.of(
+              navigatorKey.currentContext!,
+            ).showSnackBar(
+              SnackBar(
+                content: Text(
+                    "Failed to load leave applications. Please try again."),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } on SocketException catch (e) {
+        print('No internet connection: $e');
+        if (mounted) {
           ScaffoldMessenger.of(
             navigatorKey.currentContext!,
           ).showSnackBar(
             SnackBar(
-              content:
-                  Text("Failed to load leave applications. Please try again."),
+              content: Text("No internet connection. Please try again later."),
               backgroundColor: Colors.red,
             ),
           );
         }
-      } on SocketException catch (e) {
-        print('No internet connection: $e');
-        ScaffoldMessenger.of(
-          navigatorKey.currentContext!,
-        ).showSnackBar(
-          SnackBar(
-            content: Text("No internet connection. Please try again later."),
-            backgroundColor: Colors.red,
-          ),
-        );
       } catch (e) {
         print('Error occurred: $e');
-        ScaffoldMessenger.of(
-          navigatorKey.currentContext!,
-        ).showSnackBar(
-          SnackBar(
-            content: Text("An error occurred. Please try again."),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(
+            navigatorKey.currentContext!,
+          ).showSnackBar(
+            SnackBar(
+              content: Text("An error occurred. Please try again."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } finally {
-        setState(() {
-          isLoading =
-              false; // Set loading state to false after the fetch completes
-        });
+        if (mounted) {
+          setState(() {
+            isLoading =
+                false; // Set loading state to false after the fetch completes
+          });
+        }
       }
     } else {
       throw Exception('User is not authenticated or user data is not loaded');
     }
   }
 
-// Filter leave applications based on selected leave type
-  void filterLeaveApplications() {
-    switch (selectedTab) {
-      case 1:
-        filteredLeaveApplications = leaveApplications; // All
-        break;
-      case 2:
-        filteredLeaveApplications = leaveApplications
-            .where((leave) => leave['leaveType'] == 'casual')
-            .toList();
-        break;
-      case 3:
-        filteredLeaveApplications = leaveApplications
-            .where((leave) => leave['leaveType'] == 'medical')
-            .toList();
-        break;
-      default:
-        filteredLeaveApplications = leaveApplications;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -169,137 +153,79 @@ class _LeavesState extends State<Leaves> {
           SizedBox(width: 10),
         ],
       ),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          if (details.primaryVelocity! < 0) {
-            // Swiped left (next tab)
-            if (selectedTab < 3) {
-              setState(() {
-                selectedTab++;
-                filterLeaveApplications();
-              });
-            }
-          } else if (details.primaryVelocity! > 0) {
-            // Swiped right (previous tab)
-            if (selectedTab > 1) {
-              setState(() {
-                selectedTab--;
-                filterLeaveApplications();
-              });
-            }
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CustomSlidingSegmentedControl<int>(
-                    fixedWidth: screenWidth * 0.3,
-                    initialValue: selectedTab,
-                    children: const {
-                      1: Text('All'),
-                      2: Text('Casual'),
-                      3: Text('Medical'),
-                    },
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.lightBackgroundGray,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    thumbDecoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(30),
-                          blurRadius: 4.0,
-                          spreadRadius: 1.0,
-                          offset: const Offset(0.0, 2.0),
-                        )
-                      ],
-                    ),
-                    curve: Curves.easeInToLinear,
-                    onValueChanged: (v) {
-                      setState(() {
-                        selectedTab = v;
-                        filterLeaveApplications();
-                      });
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: fetchLeaveApplications,
-                  child: isLoading
-                      ? Center(
-                          child: CircularProgressIndicator(),
-                        )
-                      : filteredLeaveApplications.isEmpty
-                          ? ListView(
-                              children: const [
-                                Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(top: 20.0),
-                                    child: Text(
-                                      "No leave requests found",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey,
-                                      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: fetchLeaveApplications,
+                child: isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(),
+                      )
+                    : leaveApplications.isEmpty
+                        ? ListView(
+                            children: const [
+                              Center(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 20.0),
+                                  child: Text(
+                                    "No leave requests found",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey,
                                     ),
                                   ),
                                 ),
-                              ],
-                            )
-                          : ListView.builder(
-                              itemCount: filteredLeaveApplications.length,
-                              itemBuilder: (context, index) {
-                                final leave = filteredLeaveApplications[index];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16.0),
-                                  child: buildLeaveCard(
-                                    leave,
-                                    formatDateRange(
-                                        leave['startDate'], leave['endDate']),
-                                    leave['leaveType'],
-                                    leave['status'],
-                                    getStatusColor(leave['status']),
-                                    leave['leaveId'],
-                                  ),
-                                );
-                              },
-                            ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            itemCount: leaveApplications.length,
+                            itemBuilder: (context, index) {
+                              final leave = leaveApplications[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: buildLeaveCard(
+                                  leave,
+                                  formatDateRange(
+                                      leave['startDate'], leave['endDate']),
+                                  leave['leaveType'],
+                                  leave['status'],
+                                  getStatusColor(leave['status']),
+                                  leave['leaveId'],
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
                 ),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.0),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ApplyLeaveScreen(),
                   ),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ApplyLeaveScreen(),
-                    ),
-                  );
-                },
-                child: const Text(
-                  "Apply Leave",
-                  style: TextStyle(color: Colors.white),
-                ),
+                );
+              },
+              child: const Text(
+                "Apply Leave",
+                style: TextStyle(color: Colors.white),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

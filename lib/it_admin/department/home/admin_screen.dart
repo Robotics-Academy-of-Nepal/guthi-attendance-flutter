@@ -226,10 +226,18 @@ class _ItAdminScreenState extends State<ItAdminScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Admin Panel'),
+        title: const Text(
+          'Admin Panel',
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.blue,
         bottom: TabBar(
           controller: _tabController,
-          tabs: [
+          labelColor: Colors.white, // Sets selected tab text color to white
+          unselectedLabelColor: Colors
+              .white70, // Optional: slightly dimmed color for unselected tabs
+          tabs: const [
             Tab(icon: Icon(Icons.add), text: 'Create Department'),
             Tab(icon: Icon(Icons.supervisor_account), text: 'Assign Head'),
             Tab(
@@ -258,7 +266,6 @@ class _ItAdminScreenState extends State<ItAdminScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Transfer Staff"),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
@@ -359,11 +366,23 @@ class _ItAdminScreenState extends State<ItAdminScreen>
                 _transferStaff(toDeptId!, staffId!);
               },
               style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                  backgroundColor: Colors.blue),
-              child: Text(
-                "Transfer Staff",
-                style: TextStyle(color: Colors.white),
+                minimumSize: const Size(double.infinity, 48),
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(8.0), // Optional rounded corners
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min, // Prevents excessive stretching
+                children: [
+                  Icon(Icons.swap_horiz, color: Colors.white), // Transfer icon
+                  SizedBox(width: 8), // Space between icon and text
+                  Text(
+                    "Transfer Staff",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
               ),
             ),
           ],
@@ -373,42 +392,49 @@ class _ItAdminScreenState extends State<ItAdminScreen>
   }
 
   Widget _buildCreateDepartmentTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _departmentNameController,
-            decoration: InputDecoration(
-              labelText: 'Department Name',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              prefixIcon: Icon(Icons.apartment),
-            ),
-          ),
-          SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _createDepartment,
-            icon: Icon(
-              Icons.add,
-              color: Colors.white,
-            ),
-            label: Text('Create Department'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  Colors.blue, // Sets the button's background color to blue
-              foregroundColor:
-                  Colors.white, // Sets the text and icon color to white
-              padding: EdgeInsets.symmetric(
-                  horizontal: 16.0, vertical: 12.0), // Optional padding
-              shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(8.0), // Optional rounded corners
+    return GestureDetector(
+      onTap: () {
+        // Close the keyboard when tapping outside the text field
+        FocusScope.of(context).unfocus();
+      },
+      behavior: HitTestBehavior.opaque, // Ensures the entire screen is tappable
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _departmentNameController,
+              decoration: InputDecoration(
+                labelText: 'Department Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: Icon(Icons.apartment),
               ),
             ),
-          ),
-        ],
+            SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _createDepartment,
+              icon: Icon(
+                Icons.add,
+                color: Colors.white,
+              ),
+              label: Text('Create Department'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    Colors.blue, // Sets the button's background color to blue
+                foregroundColor:
+                    Colors.white, // Sets the text and icon color to white
+                padding: EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 12.0), // Optional padding
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(8.0), // Optional rounded corners
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:attendance2/admin/navbarr/bloc/navigation_cubit.dart';
 import 'package:attendance2/auth/login_bloc/login_bloc.dart';
 import 'package:attendance2/auth/screens/splash_screen.dart';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
@@ -7,7 +8,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'firebase_options.dart';
-import 'package:attendance2/admin/navbarr/bloc/navigation_cubit.dart';
 import 'package:attendance2/department/navbar/bloc/navigation_cubit.dart';
 import 'package:attendance2/staff/navbar/bloc/navigation_cubit.dart';
 import 'package:flutter/material.dart';

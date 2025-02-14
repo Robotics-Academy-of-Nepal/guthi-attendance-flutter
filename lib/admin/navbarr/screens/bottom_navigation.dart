@@ -37,6 +37,10 @@ class ACustomBottomNavBar extends StatelessWidget {
               text: 'Leave',
             ),
             GButton(
+              icon: Icons.fact_check,
+              text: 'Logs',
+            ),
+            GButton(
               icon: Icons.person,
               text: 'Profile',
             )

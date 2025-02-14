@@ -2,6 +2,7 @@ import 'package:attendance2/auth/userdata_bloc/bloc.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/config/global.dart';
 import 'package:attendance2/department/navbar/bloc/navigation_cubit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
@@ -42,7 +43,7 @@ class _DHomeScreenState extends State<DHomeScreen> {
   Future<void> fetchProfileImage() async {
     String? imageData = await secureStorage.read(key: 'image');
 
-    if (imageData != null) {
+    if (imageData != null && mounted) {
       setState(() {
         profileImage = '$baseurl$imageData';
       });
@@ -50,6 +51,8 @@ class _DHomeScreenState extends State<DHomeScreen> {
   }
 
   Future<void> fetchAttendanceData() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
       isError = false;
@@ -67,7 +70,6 @@ class _DHomeScreenState extends State<DHomeScreen> {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         List<dynamic> data = json.decode(response.body);
-        print(data);
 
         // Create a map to store check-in and check-out times for each date
         Map<String, Map<String, String?>> attendanceMap = {};
@@ -92,10 +94,8 @@ class _DHomeScreenState extends State<DHomeScreen> {
           if (date == yesterdayDate) {
             if (eventType == 'Check In') {
               yesterdayCheckIn = time;
-              print("Yesterday Check-In: $yesterdayCheckIn");
             } else if (eventType == 'Check Out') {
               yesterdayCheckOut = time;
-              print("Yesterday Check-Out: $yesterdayCheckOut");
             }
           }
         }
@@ -124,19 +124,25 @@ class _DHomeScreenState extends State<DHomeScreen> {
         // Reverse the order to display the most recent date at the top
         updatedActivities = updatedActivities.reversed.toList();
 
-        setState(() {
-          filteredActivities = updatedActivities;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            filteredActivities = updatedActivities;
+            isLoading = false;
+          });
+        }
       } else {
         throw Exception("Failed to fetch data: ${response.statusCode}");
       }
     } catch (e) {
-      setState(() {
-        isError = true;
-        isLoading = false;
-      });
-      print("Error fetching data: $e");
+      if (mounted) {
+        setState(() {
+          isError = true;
+          isLoading = false;
+        });
+      }
+      if (kDebugMode) {
+        print("Error fetching data: $e");
+      }
     }
   }
 
