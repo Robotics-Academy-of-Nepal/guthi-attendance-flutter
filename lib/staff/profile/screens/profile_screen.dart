@@ -64,6 +64,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: _uploadImage,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(8.0), // Optional rounded corners
+                ),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 8), // Reduced padding
                 minimumSize: const Size(

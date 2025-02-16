@@ -59,7 +59,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
           );
         }
       }
-    } on SocketException catch (e) {
+    } on SocketException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -68,7 +68,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
           ),
         );
       }
-    } on Exception catch (e) {
+    } on Exception {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
