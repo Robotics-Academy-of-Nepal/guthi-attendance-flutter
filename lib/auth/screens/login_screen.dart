@@ -1,5 +1,5 @@
-// // ignore_for_file: avoid_print
-import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance2/admin/navbarr/screens/mainscreen.dart';
 import 'package:attendance2/auth/login_bloc/login_bloc.dart';
 import 'package:attendance2/auth/login_bloc/login_event.dart';
@@ -9,9 +9,6 @@ import 'package:attendance2/auth/screens/register_screen.dart';
 import 'package:attendance2/department/navbar/screens/mainscreen.dart';
 import 'package:attendance2/it_admin/navbar/screens/mainscreen.dart';
 import 'package:attendance2/staff/navbar/screens/mainscreen.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,14 +19,6 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
-
-  // Helper for platform-specific widgets
-  Widget _platformSpecificWidget({
-    required Widget iosWidget,
-    required Widget androidWidget,
-  }) {
-    return Platform.isIOS ? iosWidget : androidWidget;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,17 +63,10 @@ class _LoginPageState extends State<LoginPage> {
               .showSnackBar(SnackBar(content: Text(state.errorMessage)));
         }
       },
-      child: _platformSpecificWidget(
-        iosWidget: CupertinoPageScaffold(
-          resizeToAvoidBottomInset: true,
-          navigationBar: CupertinoNavigationBar(middle: Text('Login')),
-          child: _buildLoginContent(),
-        ),
-        androidWidget: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: Colors.white,
-          body: _buildLoginContent(),
-        ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: Colors.white,
+        body: _buildLoginContent(),
       ),
     );
   }
@@ -140,122 +122,64 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _platformSpecificWidget(
-          iosWidget: BlocBuilder<LoginBloc, LoginState>(
-            builder: (context, state) {
-              return CupertinoTextField(
-                onChanged: (value) =>
-                    context.read<LoginBloc>().add(EmailChanged(value)),
-                placeholder: "Email",
-                prefix: const Icon(CupertinoIcons.mail),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                style: TextStyle(color: Colors.black),
-                placeholderStyle:
-                    TextStyle(color: Colors.black.withValues(alpha: 0.6)),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withValues(alpha: .1),
+        BlocBuilder<LoginBloc, LoginState>(
+          builder: (context, state) {
+            return TextField(
+              onChanged: (value) =>
+                  context.read<LoginBloc>().add(EmailChanged(value)),
+              decoration: InputDecoration(
+                hintText: "Email",
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
                 ),
-              );
-            },
-          ),
-          androidWidget: BlocBuilder<LoginBloc, LoginState>(
-            builder: (context, state) {
-              return TextField(
-                onChanged: (value) =>
-                    context.read<LoginBloc>().add(EmailChanged(value)),
-                decoration: InputDecoration(
-                  hintText: "Email",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: Colors.purple.withValues(alpha: .1),
-                  filled: true,
-                  prefixIcon: const Icon(Icons.email),
-                ),
-              );
-            },
-          ),
+                fillColor: Colors.purple.withOpacity(0.1),
+                filled: true,
+                prefixIcon: const Icon(Icons.email),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 10),
-        _platformSpecificWidget(
-          iosWidget: BlocBuilder<LoginBloc, LoginState>(
-            builder: (context, state) {
-              return CupertinoTextField(
-                onChanged: (value) =>
-                    context.read<LoginBloc>().add(PasswordChanged(value)),
-                obscureText: _obscurePassword,
-                placeholder: "Password",
-                prefix: const Icon(CupertinoIcons.lock),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                style: TextStyle(color: Colors.black),
-                placeholderStyle:
-                    TextStyle(color: Colors.black.withValues(alpha: .6)),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withValues(alpha: 0.1),
+        BlocBuilder<LoginBloc, LoginState>(
+          builder: (context, state) {
+            return TextField(
+              onChanged: (value) =>
+                  context.read<LoginBloc>().add(PasswordChanged(value)),
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                hintText: "Password",
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
                 ),
-                suffix: GestureDetector(
-                  onTap: () {
+                fillColor: Colors.purple.withOpacity(0.1),
+                filled: true,
+                prefixIcon: const Icon(Icons.lock),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
-                  child: Icon(
-                    _obscurePassword
-                        ? CupertinoIcons.eye_slash
-                        : CupertinoIcons.eye,
-                    color: Colors.black.withValues(alpha: 0.6),
-                  ),
                 ),
-              );
-            },
-          ),
-          androidWidget: BlocBuilder<LoginBloc, LoginState>(
-            builder: (context, state) {
-              return TextField(
-                onChanged: (value) =>
-                    context.read<LoginBloc>().add(PasswordChanged(value)),
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  hintText: "Password",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: Colors.purple.withValues(alpha: .1),
-                  filled: true,
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
   Widget _forgotPassword() {
-    return _platformSpecificWidget(
-      iosWidget: CupertinoButton(
-        padding: EdgeInsets.zero,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
         onPressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => const ForgetPasswordScreen(),
@@ -264,24 +188,7 @@ class _LoginPageState extends State<LoginPage> {
         },
         child: const Text(
           "Forgot password?",
-          style: TextStyle(color: CupertinoColors.activeBlue),
-        ),
-      ),
-      androidWidget: Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ForgetPasswordScreen(),
-              ),
-            );
-          },
-          child: const Text(
-            "Forgot password?",
-            style: TextStyle(color: Colors.blue),
-          ),
+          style: TextStyle(color: Colors.blue),
         ),
       ),
     );
@@ -291,30 +198,20 @@ class _LoginPageState extends State<LoginPage> {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: _platformSpecificWidget(
-        iosWidget: BlocBuilder<LoginBloc, LoginState>(
-          builder: (context, state) {
-            return CupertinoButton.filled(
-              onPressed: () => context.read<LoginBloc>().add(LoginSubmitted()),
-              child: const Text("Login"),
-            );
-          },
-        ),
-        androidWidget: BlocBuilder<LoginBloc, LoginState>(
-          builder: (context, state) {
-            return ElevatedButton(
-              onPressed: () => context.read<LoginBloc>().add(LoginSubmitted()),
-              style: ElevatedButton.styleFrom(
-                shape: const StadiumBorder(),
-                backgroundColor: Colors.blue,
-              ),
-              child: const Text(
-                "Login",
-                style: TextStyle(fontSize: 18, color: Colors.white),
-              ),
-            );
-          },
-        ),
+      child: BlocBuilder<LoginBloc, LoginState>(
+        builder: (context, state) {
+          return ElevatedButton(
+            onPressed: () => context.read<LoginBloc>().add(LoginSubmitted()),
+            style: ElevatedButton.styleFrom(
+              shape: const StadiumBorder(),
+              backgroundColor: Colors.blue,
+            ),
+            child: const Text(
+              "Login",
+              style: TextStyle(fontSize: 18, color: Colors.white),
+            ),
+          );
+        },
       ),
     );
   }

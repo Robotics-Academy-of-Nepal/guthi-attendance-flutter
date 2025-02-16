@@ -21,15 +21,15 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  NotificationService notificationService = NotificationService();
+  // NotificationService notificationService = NotificationService();
 
   @override
   void initState() {
     context.read<NavigationCubit>().updateTabIndex(0);
-    notificationService.requestNotificationPermission(context);
-    notificationService.getDeviceToken();
-    notificationService.firebaseInit(context);
-    notificationService.setupInteractMessage(context);
+    // notificationService.requestNotificationPermission(context);
+    // notificationService.getDeviceToken();
+    // notificationService.firebaseInit(context);
+    // notificationService.setupInteractMessage(context);
     super.initState();
   }
 
