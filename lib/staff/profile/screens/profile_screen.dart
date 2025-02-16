@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_print
 import 'dart:convert';
+import 'dart:io';
 import 'package:attendance2/auth/screens/login_screen.dart';
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
 import 'package:attendance2/auth/userdata_bloc/event.dart';
@@ -31,6 +32,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadProfileImage();
+  }
+
+  Future<void> _uploadImage() async {
+    // Request permission based on the platform
+    final status = Platform.isAndroid
+        ? await Permission.mediaLibrary.request()
+        : await Permission.photos.request();
+
+    // Handle denied or permanently denied permissions
+    if (status.isDenied || status.isPermanentlyDenied) {
+      await openAppSettings();
+      return;
+    }
+
+    // Proceed if permission is granted
+    if (status.isGranted) {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 50,
+      );
+      if (pickedFile != null) {
+        final mimeType = lookupMimeType(pickedFile.path);
+        if (mimeType != null && mimeType.startsWith('image')) {
+          if (mounted) {
+            setState(() => _image = pickedFile);
+          }
+        } else {
+          // Reset _image to null if no image is picked
+          if (mounted) {
+            setState(() => _image = null);
+          }
+        }
+      }
+    }
+
+    // Exit if no image is selected
+    if (_image == null) return;
+
+    // Prepare the API request
+    var uri = Uri.parse('$baseurl/api/users/${widget.userIdd}/');
+    var request = http.MultipartRequest('PATCH', uri);
+    request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
+
+    try {
+      // Send the request
+      var response = await request.send();
+
+      // Handle successful response
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final responseData = await response.stream.bytesToString();
+        final decodedData = jsonDecode(responseData);
+        final imageUrl = decodedData['image'];
+
+        if (imageUrl != null) {
+          // Save the image URL to secure storage
+          await _secureStorage.write(key: 'image', value: imageUrl);
+          if (mounted) {
+            context.read<UserDataBloc>().add(UserDataLoaded());
+            setState(() => _image = XFile(imageUrl));
+          }
+        }
+      }
+    } catch (e) {
+      print('Error uploading image: $e');
+    }
   }
 
   Future<void> _loadProfileImage() async {
@@ -157,21 +223,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: ClipOval(
         child: _image != null
-            ? Image.network(
-                _image!.path,
-                width: 120,
-                height: 120,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  return loadingProgress == null
-                      ? child
-                      : const Center(child: CircularProgressIndicator());
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.broken_image,
-                      size: 80, color: Colors.grey);
-                },
-              )
+            ? _isLocalFile(_image!.path)
+                ? Image.file(
+                    File(_image!.path),
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                  )
+                : Image.network(
+                    _image!.path,
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      return loadingProgress == null
+                          ? child
+                          : const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.broken_image,
+                          size: 80, color: Colors.grey);
+                    },
+                  )
             : Container(
                 width: 120,
                 height: 120,
@@ -182,64 +255,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _uploadImage() async {
-    final status = await Permission.mediaLibrary.request();
-    if (status.isDenied || status.isPermanentlyDenied) {
-      await openAppSettings();
-      return;
-    }
-
-    if (status.isGranted) {
-      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        final mimeType = lookupMimeType(pickedFile.path);
-        if (mimeType != null && mimeType.startsWith('image')) {
-          setState(() => _image = pickedFile);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a valid image file.')),
-          );
-          return;
-        }
-      }
-    }
-
-    // Check if _image is null before proceeding with the upload
-    if (_image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No image selected.')),
-      );
-      return;
-    }
-
-    var uri = Uri.parse('$baseurl/api/users/${widget.userIdd}/');
-    var request = http.MultipartRequest('PATCH', uri);
-    request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
-
-    try {
-      var response = await request.send();
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final responseData = await response.stream.bytesToString();
-        final decodedData = jsonDecode(responseData);
-        final imageUrl = decodedData['image'];
-
-        if (imageUrl != null) {
-          await _secureStorage.write(key: 'image', value: imageUrl);
-          context.read<UserDataBloc>().add(UserDataLoaded());
-          setState(() => _image = XFile(imageUrl));
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Failed to upload image: ${response.statusCode}')),
-        );
-      }
-    } catch (e) {
-      print('Error uploading image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading image: $e')),
-      );
-    }
+  bool _isLocalFile(String path) {
+    return path.startsWith('/') || path.startsWith('file://');
   }
 
   Future<void> _showLogoutDialog() async {

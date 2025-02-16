@@ -1,4 +1,5 @@
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
+import 'package:attendance2/auth/userdata_bloc/event.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/config/global.dart';
 import 'package:attendance2/staff/navbar/bloc/navigation_cubit.dart';
@@ -34,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    context.read<UserDataBloc>().add(UserDataLoaded());
     fetchAttendanceData();
   }
 

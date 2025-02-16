@@ -1,4 +1,5 @@
 import 'package:attendance2/auth/userdata_bloc/bloc.dart';
+import 'package:attendance2/auth/userdata_bloc/event.dart';
 import 'package:attendance2/auth/userdata_bloc/state.dart';
 import 'package:attendance2/config/global.dart';
 import 'package:attendance2/department/navbar/bloc/navigation_cubit.dart';
@@ -36,18 +37,8 @@ class _DHomeScreenState extends State<DHomeScreen> {
   @override
   void initState() {
     super.initState();
+    context.read<UserDataBloc>().add(UserDataLoaded());
     fetchAttendanceData();
-    fetchProfileImage();
-  }
-
-  Future<void> fetchProfileImage() async {
-    String? imageData = await secureStorage.read(key: 'image');
-
-    if (imageData != null && mounted) {
-      setState(() {
-        profileImage = '$baseurl$imageData';
-      });
-    }
   }
 
   Future<void> fetchAttendanceData() async {
