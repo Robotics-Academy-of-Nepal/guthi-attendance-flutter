@@ -27,9 +27,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     });
 
     on<LoginSubmitted>((event, emit) async {
-      NotificationService notificationService = NotificationService();
-      String fcmToken = await notificationService.getDeviceToken();
-      print('FCM Token: $fcmToken'); // Debug statement
+      // NotificationService notificationService = NotificationService();
+      // String fcmToken = await notificationService.getDeviceToken();
+      // print('FCM Token: $fcmToken'); // Debug statement
 
       emit(LoginLoading());
       print('Login process started...'); // Debug statement
@@ -40,7 +40,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         final body = jsonEncode({
           'email': email,
           'password': password,
-          'fcmToken': fcmToken,
+          'fcmToken': '',
         });
         print('Request body: $body'); // Debug statement
 

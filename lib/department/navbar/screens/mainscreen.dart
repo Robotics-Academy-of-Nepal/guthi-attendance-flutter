@@ -27,7 +27,7 @@ class _DMainScreenState extends State<DMainScreen> {
     notificationService.getDeviceToken();
     notificationService.firebaseInit(context);
     notificationService.setupInteractMessage(context);
-    // FcmService.firebaseInit();
+
     super.initState();
   }
 

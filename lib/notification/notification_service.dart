@@ -78,8 +78,15 @@ class NotificationService {
 
   //Fetch FCM Token
   Future<String> getDeviceToken() async {
-    String? token = await messaging.getToken();
-    return token!;
+    if (kIsWeb) {
+      String? token = await messaging.getToken(
+          vapidKey:
+              'BJ2TjxeeF2zCVoQ4k-2GekwVVSRXThSZ1ulGqT3E-fX-vllSyg8jVPiTo7_wc46Sb9ottxRRfvNyjReqMqxJrdA');
+      return token!;
+    } else {
+      String? token = await messaging.getToken();
+      return token!;
+    }
   }
 
   void initLocalNotifications(RemoteMessage message) async {
